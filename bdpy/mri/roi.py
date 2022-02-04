@@ -16,7 +16,8 @@ from bdpy.mri import load_mri
 def add_roimask(bdata, roi_mask, roi_prefix='',
                 brain_data='VoxelData', xyz=['voxel_x', 'voxel_y', 'voxel_z'],
                 return_roi_flag=False,
-                verbose=True):
+                verbose=True,
+                round=None):
     '''Add an ROI mask to `bdata`.
 
     Parameters
@@ -24,6 +25,8 @@ def add_roimask(bdata, roi_mask, roi_prefix='',
     bdata : BData
     roi_mask : str or list
         ROI mask file(s).
+    round :  int
+        Number of decimal places to round the voxel coordinate.
 
     Returns
     -------
@@ -38,6 +41,9 @@ def add_roimask(bdata, roi_mask, roi_prefix='',
                            bdata.get_metadata(xyz[1], where=brain_data),
                            bdata.get_metadata(xyz[2], where=brain_data)])
 
+    if round is not None:
+        voxel_xyz = np.round(voxel_xyz, round)
+
     # Load the ROI mask files
     mask_xyz_all = []
     mask_v_all = []
@@ -46,6 +52,8 @@ def add_roimask(bdata, roi_mask, roi_prefix='',
 
     for m in roi_mask:
         mask_v, mask_xyz, mask_ijk = load_mri(m)
+        if round is not None:
+            mask_xyz = np.round(mask_xyz, round)
         mask_v_all.append(mask_v)
         mask_xyz_all.append(mask_xyz[:, (mask_v == 1).flatten()])
 
@@ -56,7 +64,7 @@ def add_roimask(bdata, roi_mask, roi_prefix='',
     if voxel_consistency:
         roi_flag = np.vstack(mask_v_all)
     else:
-        roi_flag = get_roiflag(mask_xyz_all, voxel_xyz)
+        roi_flag = get_roiflag(mask_xyz_all, voxel_xyz, verbose=verbose)
 
     # Add the ROI flag as metadata in `bdata`
     md_keys = []
@@ -69,9 +77,9 @@ def add_roimask(bdata, roi_mask, roi_prefix='',
             roi_md5 = hashlib.md5(f.read()).hexdigest()
 
         roi_desc = '1 = ROI %s (source file: %s; md5: %s)' % (roi_name, roi, roi_md5)
-
-        print('Adding %s' % roi_name)
-        print('  %s' % roi_desc)
+        if verbose:
+            print('Adding %s' % roi_name)
+            print('  %s' % roi_desc)
         md_keys.append(roi_name)
         md_descs.append(roi_desc)
 
